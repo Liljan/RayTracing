@@ -2,6 +2,21 @@
 
 #include <Walnut/Random.h>
 
+namespace Utils
+{
+	static uint32_t ConvertToRBGA(const glm::vec4& color)
+	{
+		const uint32_t r = (uint32_t)(color.r * 255.0f);
+		const uint32_t g = (uint32_t)(color.g * 255.0f);
+		const uint32_t b = (uint32_t)(color.b * 255.0f);
+		const uint32_t a = (uint32_t)(color.a * 255.0f);
+
+		const uint32_t result = (a << 24) | (b << 16) | (g << 8) | r;
+		return result;
+	}
+}
+
+
 void Renderer::OnRisize(uint32_t width, uint32_t height)
 {
 	if (m_FinalImage)
@@ -28,14 +43,18 @@ void Renderer::Render()
 		{
 			glm::vec2 coord = glm::vec2((float)x / (float)m_FinalImage->GetWidth(), (float)y / (float)m_FinalImage->GetHeight());
 			coord = coord * 2.0f - 1.0f; // from -1 to 1
-			m_ImageData[x + y * m_FinalImage->GetWidth()] = PerPixel(coord);
+
+			glm::vec4 color = PerPixel(coord);
+			color = glm::clamp(color, glm::vec4(0.0f), glm::vec4(1.0f));
+
+			m_ImageData[x + y * m_FinalImage->GetWidth()] = Utils::ConvertToRBGA(color);
 		}
 	}
 
 	m_FinalImage->SetData(m_ImageData);
 }
 
-uint32_t Renderer::PerPixel(const glm::vec2& coord)
+glm::vec4 Renderer::PerPixel(const glm::vec2& coord)
 {
 	glm::vec3 rayOrigin(0.0f, 0.0f, 2.0f);
 	glm::vec3 rayDirection(coord.x, coord.y, -1.0f);
@@ -53,8 +72,21 @@ uint32_t Renderer::PerPixel(const glm::vec2& coord)
 	float c = glm::dot(rayOrigin, rayOrigin) - radius * radius;
 
 	const float disc = b * b - 4.0f * a * c;
-	if (disc >= 0.0f)
-		return 0xffff00ff;
+	if (disc < 0.0f)
+		return glm::vec4(0, 0, 0, 1);
 
-	return 0xff000000;
+	const float t0 = (-b - glm::sqrt(disc)) / (2.0f * a);
+	//const float t1 = (-b + glm::sqrt(disc)) / (2.0f * a);
+
+	glm::vec3 hitPoint = rayOrigin + t0 * rayDirection;
+	glm::vec3 normal = glm::normalize(hitPoint);
+
+	glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -1));
+
+	const float d = glm::max(0.0f, glm::dot(normal, -lightDir));
+
+	glm::vec3 sphereColor(1, 0, 1);
+	sphereColor *= d;
+
+	return glm::vec4(sphereColor, 1.0f);
 }

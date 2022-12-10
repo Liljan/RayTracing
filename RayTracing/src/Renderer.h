@@ -18,7 +18,7 @@ public:
 
 private:
 
-	uint32_t PerPixel(const glm::vec2& coord);
+	glm::vec4 PerPixel(const glm::vec2& coord);
 
 private:
 
